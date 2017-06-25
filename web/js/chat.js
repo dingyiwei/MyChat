@@ -2,8 +2,7 @@
  * Created by DingYiwei on 2017/6/19.
  */
 var currentUserId;
-var userPhoto = null;
-var currentTab = 0;
+var currentTab = -1;
 
 $(function () {
     $("[data-toggle='popover']").popover();
@@ -11,24 +10,25 @@ $(function () {
     messagesDiv.height(messagesDiv.parent().height() - 144);
     currentUserId = $.cookie("accountid");
     loadUserInfo();
-    loadRecentMessageList();
+    loadRecentMessageList(currentUserId);
     loadGroups();
-    self.setInterval("refresh()", 2000);
 });
 
 function loadUserInfo() {
     $.getJSON("../AccountInfoServlet", {accountid: currentUserId}, function (userInfo) {
         var photo = userInfo[0]["PHOTO"];
-        userPhoto = photo;
         var nickname = userInfo[0]["NICKNAME"];
         $("#photo").find("img").attr("src", photo);
-        $("#nicknameOnTop").find("p").text(nickname);
+        $("#nickname").find("p").text(nickname);
     })
 }
 
 function loadRecentMessageList() {
+    if (currentTab == 0) {
+        return;
+    }
     currentTab = 0;
-    $.getJSON("../FindNotReadFriendsServlet", {accountid: currentUserId}, function (messageList) {
+    $.getJSON("../FindNotReadFriendsServlet", {accoutid: currentUserId}, function (messageList) {
         var messageDiv = $("#messageList");
         messageDiv.empty();
         for (var i = 0; i < messageList.length; ++i) {
@@ -51,7 +51,7 @@ function loadRecentMessageList() {
                 "<div class='col-xs-2 pull-right'>" + time +
                 "</div>" +
                 "<div class='row' style='margin-left: 0'>" + lastMessage +
-                "<span class='badge pull-right' style='background: #900000'>" + message["UnreadNum"] +
+                "<span class='badge pull-right' style='background: #900000'>" + message.messageNumber +
                 "</span></div></div></div></li>");
         }
         if (messageList.length == 0) {
@@ -61,6 +61,9 @@ function loadRecentMessageList() {
 }
 
 function loadFriendList() {
+    if (currentTab == 1) {
+        return;
+    }
     currentTab = 1;
     $.getJSON("../ReadUserFriendsServlet", {accountid: currentUserId}, function (friendList) {
         var messageDiv = $("#messageList");
@@ -99,6 +102,9 @@ function loadFriendList() {
 }
 
 function loadApplyList() {
+    if (currentTab == 2) {
+        return;
+    }
     currentTab = 2;
     $.getJSON("../ReadUserNewFriendServlet", {accountid: currentUserId}, function (applyList) {
         var messageDiv = $("#messageList");
@@ -112,8 +118,8 @@ function loadApplyList() {
                 "<img src='" + apply["PHOTO"] + "' class='img-circle' style='height: 40px; width: 40px;'></div>" +
                 "<div class='col-xs-8'>" + apply["NICKNAME"] + "(" + apply["FRIENDID"] + ")<br>请求添加你为好友</div>" +
                 "<span id='user" + apply["FRIENDID"] + "' class='glyphicon glyphicon-ok-circle' " +
-                "style='font-size: xx-large; color: dodgerblue' onclick='agree(this.id)'></span>" +
-                "<span class='glyphicon glyphicon-remove-circle' style='font-size: xx-large; color: #900000'></span>" +
+                "style='font-size: x-large; color: dodgerblue' onclick='agree(this.id)'></span>" +
+                "<span class='glyphicon glyphicon-remove' style='font-size: x-large; color: #900000'></span>" +
                 "</li>");
         }
         if (applyList.length == 0) {
@@ -151,10 +157,10 @@ function searchUsers() {
         for (var i = 0; i < userList.length; ++i) {
             var user = userList[i];
             var isFriend = user["isFriend"];
-            var spanId = isFriend == 0 ? "friend" : "messag";
+            var spanId = isFriend == 0 ? "friend" : "message";
             var classAndOnclick = isFriend == 0 ?
                 "class='glyphicon glyphicon-send' onclick='addFriend(this.id)'" :
-                "class='glyphicon glyphicon-comment' onclick='chatToFriend(this.id)'";
+                "class='glyphicon glyphicon-comment' onclick='chatTo(this.id)'";
             list.append("<li class='list-group-item'>" +
                 "<div class='row'>" +
                 "<div class='col-xs-2'>" +
@@ -202,7 +208,6 @@ function changeSearchOption() {
 function loadGroups() {
     $.getJSON("../ShowAllGroupsServlet", {accountid: currentUserId}, function (groupList) {
         var groupBox = $("#groupList");
-        groupBox.empty();
         for (var i = 0; i < groupList.length; ++i) {
             var group = groupList[i];
             groupBox.append("<li id='allgroup" + group["GROUPID"] + "' class='list-group-item' onclick='changeGroupOfFriend(this.id)'>" +
@@ -233,13 +238,8 @@ function deleteFriend() {
         var noticeBox = $("#notice");
         noticeBox.find(".modal-body").text("删除成功");
         noticeBox.modal();
-        loadFriendList();
-        document.getElementById("chatMask").style.display = "";
+        if (currentTab == 1) {
+            loadFriendList();
+        }
     });
-}
-
-function showNotice(noticeMessage) {
-    var noticeBox = $("#notice");
-    noticeBox.find(".modal-body").text(noticeMessage);
-    noticeBox.modal();
 }
